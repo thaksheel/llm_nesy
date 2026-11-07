@@ -7,7 +7,7 @@ import os
 import json
 from dotenv import load_dotenv
 
-from modules.aristotle.translate_decompose import GPT3_Reasoning_Graph_Baseline
+from temp.translate_decompose import GPT3_Reasoning_Graph_Baseline
 
 load_dotenv()
 

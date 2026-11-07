@@ -3,14 +3,15 @@ import numpy as np
 from matplotlib import pyplot as plt
 import pandas as pd
 import os
-from llm_encoding import LLMEncoding
 import threading
 from tqdm import tqdm
-from colorama import Fore, Style
 import warnings 
 from dataclasses import dataclass
 from typing import Optional, Literal, List, Dict
 import json
+
+from llm_encoding import LLMEncoding
+
 
 warnings.filterwarnings("ignore")
 
@@ -31,7 +32,7 @@ class Params:
 
 
 class TranslateDecompose:
-    def __init__(self, params: Params, device: Literal["cpu", "cuda"]):
+    def __init__(self, params: Params, device: Literal["cpu", "cuda"], display:bool = False, save_by_progress: bool = True):
         self.params = params
         self.file_lock = threading.Lock()
         self.llme = LLMEncoding(
@@ -39,6 +40,8 @@ class TranslateDecompose:
             max_new_tokens=self.params.max_new_tokens,
             device=device,
         )
+        self.display = display
+        self.save_by_progress = save_by_progress
 
     def reasoning_graph_generation(self):
         raw_dataset = self.load_raw_dataset(self.params.split)
@@ -56,21 +59,13 @@ class TranslateDecompose:
             icl_biconditional_decomposer = (
                 self.load_in_context_biconditional_decomposer()
             )
-
-        print("Number of batch: ", self.params.batch_num)
+        if self.display: 
+            print("Number of batch: ", self.params.batch_num)
         reasoning_outs = []
-        bar_format = (
-            f"🚀 {Fore.GREEN}Progress{Style.RESET_ALL}: "
-            "{percentage:3.0f}% |"
-            "{bar}"
-            "| {n_fmt}/{total_fmt} • {elapsed}"
-        )
         for example in tqdm(
             raw_dataset,
-            desc="Running translate and decompose for Aristotle",
+            desc="Aristotle Decom:",
             total=len(raw_dataset),
-            # bar_format=bar_format,
-            ascii="▰▱",
         ):
             out = self.process_example(
                 example,
@@ -79,8 +74,9 @@ class TranslateDecompose:
                 icl_either_or_decomposer,
                 icl_biconditional_decomposer,
             )
-            self.save_output(out[0])
-            reasoning_outs.append(out)
+            if self.save_by_progress: 
+                self.save_output(out[0])
+            reasoning_outs.append(out[0])
         return reasoning_outs
 
     def process_example(
@@ -95,21 +91,26 @@ class TranslateDecompose:
             question = example["conjecture"]
         else:
             question = example["question"].split("?")[1]
-        print("Translating...")
+        if self.display: 
+            print("Translating...")
         prompts_a = self.construct_prompt_a(example, in_context_examples_trans)
         responses_a = self.llme.generate(prompts_a)
-        print("Translation response: ", responses_a)
+        if self.display: 
+            print("Translation response: ", responses_a)
 
         translated_facts, translated_rules, translated_conjecture = (
             self.extract_facts_rules_conjecture(responses_a)
         )
-        print("Translated Facts1: ", translated_facts)
+        if self.display: 
+            print("Translated Facts1: ", translated_facts)
         translated_facts = self.clean_irrelevant_lines(translated_facts)
-        print(f"Translated Facts2: {translated_facts}")
+        if self.display: 
+            print(f"Translated Facts2: {translated_facts}")
 
         either_or, biconditional, and_or = self.categorize_rule_lines(translated_rules)
 
-        print(
+        if self.display: 
+            print(
             f"AND/OR: {and_or} \n EITHER/OR: {either_or} \n BICONDITIONAL: {biconditional}"
         )
 
@@ -117,7 +118,8 @@ class TranslateDecompose:
         responses_either_or = None
         responses_biconditional = None
 
-        print("Decomposing rules...")
+        if self.display: 
+            print("Decomposing rules...")
         if and_or:
             responses_and_or_process = self.llme.generate(
                 self.construct_prompt_b(and_or, icl_and_or_decomposer)
@@ -148,18 +150,23 @@ class TranslateDecompose:
                 None, [responses_and_or, responses_either_or, responses_biconditional]
             )
         )
-        print("Decomposing response: ", responses_b)
+        if self.display: 
+            print("Decomposing response: ", responses_b)
 
         normalized_context = responses_b
         normalized_conjecture = self.clean_conjecture(translated_conjecture)
-        print("Normalized context: ", normalized_context)
-        print("Normalized conjecture: ", normalized_conjecture)
+        if self.display: 
+            print("Normalized context: ", normalized_context)
+        if self.display: 
+            print("Normalized conjecture: ", normalized_conjecture)
 
         negated_label = "false"
         sos_list = normalized_conjecture
 
-        print("Negated Label Initialization: ", negated_label)
-        print("SOS List Initialization: ", sos_list)
+        if self.display: 
+            print("Negated Label Initialization: ", negated_label)
+        if self.display: 
+            print("SOS List Initialization: ", sos_list)
 
         if self.params.dataset_name == "ProntoQA":
             normalized_context = self.process_normalized_context(normalized_context)
@@ -208,7 +215,8 @@ class TranslateDecompose:
             "ground_truth": example["answer"],
         }
 
-        print(output)
+        if self.display: 
+            print(output)
         return output, None
 
     def construct_prompt_a(self, record, in_context_examples_trans: str):
@@ -268,7 +276,8 @@ class TranslateDecompose:
             updated_conjecture = re.sub(r"False", "True", conjecture)
         else:
             updated_conjecture = conjecture
-            print("No True/False found in the conjecture.")
+            if self.display: 
+                print("No True/False found in the conjecture.")
 
         return updated_conjecture
 
@@ -422,7 +431,8 @@ class TranslateDecompose:
         return unique_items
 
     def split_cnf_clause(self, context):
-        print("Splitting context: ", context)
+        if self.display: 
+            print("Splitting context: ", context)
         normalized_context_lines = context.split("\n")
         unique_context_lines = self.remove_duplicates(normalized_context_lines)
         normalized_context = [line.split("\land") for line in unique_context_lines]
@@ -495,7 +505,8 @@ class TranslateDecompose:
 
             except IndexError as e:
                 problematic_content = content[first_final_form_pos:]
-                print("Problematic content: ", problematic_content)
+                if self.display: 
+                    print("Problematic content: ", problematic_content)
                 context = ""
         else:
             context_lines = content.split("\n")
@@ -529,7 +540,8 @@ class TranslateDecompose:
         file_path = os.path.join(
             "./prompts", self.params.dataset_name, "translation.txt"
         )
-        print("Loading translation file: ", file_path)
+        if self.display: 
+            print("Loading translation file: ", file_path)
         with open(file_path) as f:
             in_context_examples = f.read()
         return in_context_examples
@@ -538,7 +550,8 @@ class TranslateDecompose:
         file_path = os.path.join(
             "./prompts", self.params.dataset_name, "and_or_decomposer.txt"
         )
-        print("Loading decomposer file: ", file_path)
+        if self.display: 
+            print("Loading decomposer file: ", file_path)
         with open(file_path) as f:
             in_context_examples = f.read()
         return in_context_examples
@@ -547,7 +560,8 @@ class TranslateDecompose:
         file_path = os.path.join(
             "./prompts", self.params.dataset_name, "either_or_decomposer.txt"
         )
-        print("Loading decomposer file: ", file_path)
+        if self.display: 
+            print("Loading decomposer file: ", file_path)
         with open(file_path) as f:
             in_context_examples = f.read()
         return in_context_examples
@@ -558,7 +572,8 @@ class TranslateDecompose:
             self.params.dataset_name,
             "logical_biconditional_decomposer.txt",
         )
-        print("Loading decomposer file: ", file_path)
+        if self.display: 
+            print("Loading decomposer file: ", file_path)
         with open(file_path) as f:
             in_context_examples = f.read()
         return in_context_examples
@@ -609,7 +624,8 @@ class TranslateDecompose:
 
         os.makedirs(os.path.dirname(file_path), exist_ok=True)
 
-        print("Saving result with thread lock in path: ", file_path)
+        if self.display: 
+            print("Saving result with thread lock in path: ", file_path)
         with self.file_lock:
             try:
                 if os.path.exists(file_path):
@@ -618,7 +634,8 @@ class TranslateDecompose:
                         if file_content.strip():
                             existing_data = json.loads(file_content)
                         else:
-                            print(
+                            if self.display: 
+                                print(
                                 f"File {file_path} is empty. Initializing with an empty list."
                             )
                             existing_data = []
@@ -631,4 +648,5 @@ class TranslateDecompose:
                 with open(file_path, "w", encoding="utf-8") as f:
                     json.dump(existing_data, f, indent=2, ensure_ascii=False)
             except Exception as e:
-                print(f"Error in saving output: {e}")
+                if self.display: 
+                    print(f"Error in saving output: {e}")

@@ -27,7 +27,7 @@ class LLMEncoding:
         tokenizer.pad_token = tokenizer.eos_token
         model: PreTrainedModel = AutoModelForCausalLM.from_pretrained(
             self.model_name,
-            torch_dtype=torch.bfloat16,
+            dtype=torch.bfloat16,
             device_map=self.device,
         )
         return model, tokenizer
