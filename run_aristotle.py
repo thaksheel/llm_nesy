@@ -1,42 +1,47 @@
-from dataclasses import dataclass
-import numpy as np
-import pandas as pd
-from matplotlib import pyplot as plt
-from typing import Optional, Literal, List, Dict
 import os
-import json
 from dotenv import load_dotenv
+import pandas as pd
 
-from temp.translate_decompose import GPT3_Reasoning_Graph_Baseline
+from src import (
+    AristotleConfig,
+    Aristotle,
+    LLMProvider,
+    CloseModelSelection,
+    OpenModelSelection,
+)
 
 load_dotenv()
 
-
-@dataclass
-class Params:
-    api_key: str
-    model_name: str
-    dataset_name: str
-    split: str
-    data_path: str = (
-        r"C:\drive\OneDrive - Lehigh University\Lehigh\Research\LLM\symbolic\replicate\modules\aristotle\data"
-    )
-    save_path: str = "./results"
-    demonstration_path: str = "./icl_examples"
-    stop_words: str = "------"
-    max_new_tokens: Optional[int] = 5000
-    mode: Optional[str] = None
-    base_url: Optional[str] = None
-    batch_num: int = 1
-
-
-params = Params(
-    api_key=os.getenv("OPENAI_API_KEY"),
-    model_name="gpt-4o",
-    dataset_name="LogicNLI",
-    split="test",
+llm = LLMProvider(
+    provider="hf",
+    model_name=OpenModelSelection.qwen25_7b.value,
+    token=os.getenv("HF_TOKEN"),
+    max_new_tokens=4096,
+    temperature=0,
+    load_in_4bit=True,
 )
-rgb = GPT3_Reasoning_Graph_Baseline(args=params)
-rgb.reasoning_graph_generation()
+llm = LLMProvider(
+    provider="hf",
+    model_name=CloseModelSelection.gpt6_luna.value,
+    token=os.getenv("OPENAI_KEY"),
+    max_new_tokens=4096,
+    temperature=1,
+    load_in_4bit=False,
+)
 
+config = AristotleConfig(
+    dataset="LogicNLI",
+    data_dir="./data",
+    prompt_dir="./data/prompts",
+    results_dir="./exports/aristotle",
+)
+runs = [
+    Aristotle(AristotleConfig(dataset=d), llm).run()
+    for d in ("ProntoQA", "ProofWriter", "LogicNLI")
+]
+
+df = pd.concat([r.to_df() for r in runs], ignore_index=True)
+df.to_excel(f"./exports/aristotle/{llm.model_name.replace('/', '_')}_aristotle.xlsx")
+
+print(df.head())
 print("END")
