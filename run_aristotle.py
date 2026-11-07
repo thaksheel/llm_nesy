@@ -1,6 +1,9 @@
 import os
 from dotenv import load_dotenv
 import pandas as pd
+import warnings 
+from transformers import logging
+
 
 from src import (
     AristotleConfig,
@@ -11,12 +14,14 @@ from src import (
 )
 
 load_dotenv()
+logging.set_verbosity_error()
+warnings.filterwarnings("ignore")
 
 llm = LLMProvider(
     provider="hf",
-    model_name=OpenModelSelection.qwen25_7b.value,
+    model_name=OpenModelSelection.qwen3_8b.value,
     token=os.getenv("HF_TOKEN"),
-    max_new_tokens=4096,
+    max_new_tokens=4096*4,
     temperature=0,
     load_in_4bit=True,
 )
