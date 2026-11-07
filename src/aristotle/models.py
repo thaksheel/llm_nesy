@@ -27,7 +27,12 @@ class ProviderModel:
     final answer of reasoning models.
     """
 
-    def __init__(self, llm: Any, system_prompt: str = SYSTEM_PROMPT, stop: Optional[str] = "------"):
+    def __init__(
+        self,
+        llm: Any,
+        system_prompt: str = SYSTEM_PROMPT,
+        stop: Optional[str] = "------",
+    ):
         self.llm = llm
         self.name = llm.model_name
         self.system_prompt = system_prompt

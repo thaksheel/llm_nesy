@@ -33,14 +33,22 @@ def split_translation(response: str) -> Tuple[str, str, str]:
     rules = re.findall(r"Rule(.*?)Conjecture", response, re.DOTALL)
     _, found, conjecture = response.rpartition("Conjecture")
     conjecture = re.sub(r"^[\s:\-]*", "", conjecture.strip()) if found else ""
-    return (facts[-1].strip() if facts else "", rules[-1].strip() if rules else "", conjecture)
+    return (
+        facts[-1].strip() if facts else "",
+        rules[-1].strip() if rules else "",
+        conjecture,
+    )
 
 
 def group_rules(rules: str) -> Dict[str, List[str]]:
     groups = {"and_or": [], "either_or": [], "biconditional": []}
     for line in rules.split("\n"):
         if "(" in line:
-            kind = "either_or" if "\u2295" in line else "biconditional" if "\u21d4" in line else "and_or"
+            kind = (
+                "either_or"
+                if "\u2295" in line
+                else "biconditional" if "\u21d4" in line else "and_or"
+            )
             groups[kind].append(line)
     return groups
 
@@ -55,7 +63,9 @@ def final_form(response: str) -> str:
 
 def clean_conjecture(conjecture: str) -> str:
     lines = conjecture.replace("\\n", "\n").split("\n")
-    return "\n".join(line.split(":::")[0] for line in lines if "(" in line and not _is_header(line))
+    return "\n".join(
+        line.split(":::")[0] for line in lines if "(" in line and not _is_header(line)
+    )
 
 
 def premise_clauses(facts: str, rules: Dict[str, str]) -> List[str]:
@@ -73,7 +83,9 @@ def premise_clauses(facts: str, rules: Dict[str, str]) -> List[str]:
     for line in lines:
         if "(" not in line or ")" not in line or _is_header(line):
             continue
-        line = "\n".join(remove_negations(part) for part in _strip_latex(line).split("\n"))
+        line = "\n".join(
+            remove_negations(part) for part in _strip_latex(line).split("\n")
+        )
         line = next((part.strip() for part in line.split(":::", 1) if "(" in part), "")
         clauses.extend(_split_conjunction(line))
     return [clause for clause in clauses if "(" in clause and ")" in clause]
@@ -107,10 +119,12 @@ def remove_negations(text: str) -> str:
     for negation in NEGATIONS:
         while negation in text:
             start = text.find(negation)
-            rest = text[start + len(negation):]
+            rest = text[start + len(negation) :]
             match = BOOLEAN.search(rest)
             if match:
-                rest = rest[: match.start()] + _flip(match.group()) + rest[match.end():]
+                rest = (
+                    rest[: match.start()] + _flip(match.group()) + rest[match.end() :]
+                )
             text = text[:start] + rest
     return text
 
@@ -120,7 +134,10 @@ def complementary_clauses(clauses: List[str], sos: str) -> List[str]:
     return [
         clause
         for clause in clauses
-        if any(_complementary(term, sos) for term in OPERATOR.split(re.sub(r"[0-9.]", "", clause)))
+        if any(
+            _complementary(term, sos)
+            for term in OPERATOR.split(re.sub(r"[0-9.]", "", clause))
+        )
     ]
 
 
@@ -128,7 +145,9 @@ def parse_resolution(response: str) -> Tuple[str, bool]:
     """New clause in {...} and whether the sufficiency label in [...] is True."""
     clause = re.search(r"\{(.*?)\}", response)
     label = re.search(r"\[(.*?)\]", response)
-    return clause.group(1).strip() if clause else "", bool(label) and label.group(1).strip() == "True"
+    return clause.group(1).strip() if clause else "", bool(label) and label.group(
+        1
+    ).strip() == "True"
 
 
 def _complementary(term: str, sos: str) -> bool:
@@ -147,7 +166,9 @@ def _complementary(term: str, sos: str) -> bool:
 
 def _atom_text(text: str) -> str:
     return "\n".join(
-        line for line in text.splitlines() if line.strip() and "(" in line and not _is_header(line)
+        line
+        for line in text.splitlines()
+        if line.strip() and "(" in line and not _is_header(line)
     )
 
 

@@ -12,31 +12,33 @@ from src import (
 
 load_dotenv()
 
+# llm = LLMProvider(
+#     provider="hf",
+#     model_name=OpenModelSelection.qwen25_7b.value,
+#     token=os.getenv("HF_TOKEN"),
+#     max_new_tokens=4096,
+#     temperature=0,
+#     load_in_4bit=True,
+# )
 llm = LLMProvider(
-    provider="hf",
-    model_name=OpenModelSelection.qwen25_7b.value,
-    token=os.getenv("HF_TOKEN"),
-    max_new_tokens=4096,
-    temperature=0,
-    load_in_4bit=True,
-)
-llm = LLMProvider(
-    provider="hf",
+    provider="openai",
     model_name=CloseModelSelection.gpt6_luna.value,
     token=os.getenv("OPENAI_KEY"),
-    max_new_tokens=4096,
+    max_new_tokens=4096 * 4,
     temperature=1,
     load_in_4bit=False,
 )
-
-config = AristotleConfig(
-    dataset="LogicNLI",
-    data_dir="./data",
-    prompt_dir="./data/prompts",
-    results_dir="./exports/aristotle",
-)
 runs = [
-    Aristotle(AristotleConfig(dataset=d), llm).run()
+    Aristotle(
+        AristotleConfig(
+            dataset=d,
+            data_dir="./data",
+            prompt_dir="./data/prompts",
+            results_dir="./exports/aristotle",
+            limit=10, 
+        ),
+        llm,
+    ).run()
     for d in ("ProntoQA", "ProofWriter", "LogicNLI")
 ]
 

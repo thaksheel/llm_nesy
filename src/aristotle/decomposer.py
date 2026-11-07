@@ -115,4 +115,7 @@ class Decomposer:
     def _premises_and_conjecture(example: dict) -> Tuple[str, str]:
         if "facts" in example:
             return "\n".join(example["facts"] + example["rules"]), example["conjecture"]
-        return example["context"], re.search(r"\?(.*)", example["question"].strip()).group(1).strip()
+        return (
+            example["context"],
+            re.search(r"\?(.*)", example["question"].strip()).group(1).strip(),
+        )

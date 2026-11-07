@@ -56,7 +56,9 @@ class Resolver:
         self.template = template
 
     def __call__(self, sos: str, clause: str) -> Step:
-        prompt = self.template.replace("[[SOS]]", sos).replace("[[SELECTED-CLAUSE]]", clause)
+        prompt = self.template.replace("[[SOS]]", sos).replace(
+            "[[SELECTED-CLAUSE]]", clause
+        )
         response = self.model.generate(prompt)
         resolvent, sufficient = parse_resolution(response)
         return Step(sos, clause, resolvent, sufficient, response)
@@ -125,7 +127,9 @@ class Prover:
                 sos, clause = pair
         return Proof(False, "search rounds exhausted", steps)
 
-    def _route(self, sos: str, clauses: List[str], steps: List[Step], cache: Cache) -> Optional[Pair]:
+    def _route(
+        self, sos: str, clauses: List[str], steps: List[Step], cache: Cache
+    ) -> Optional[Pair]:
         candidates = complementary_clauses(clauses, sos)
         used = {step.clause for step in steps if step.sos == sos}
         untried = sorted((c for c in candidates if c not in used), key=len)
@@ -137,7 +141,10 @@ class Prover:
 
     @staticmethod
     def _tried(sos: str, clause: str, steps: List[Step]) -> bool:
-        return any(s.sos.strip() == sos.strip() and s.clause.strip() == clause.strip() for s in steps)
+        return any(
+            s.sos.strip() == sos.strip() and s.clause.strip() == clause.strip()
+            for s in steps
+        )
 
     @staticmethod
     def _from_cache(cache: Cache, skip: Optional[Pair] = None) -> Optional[Pair]:
